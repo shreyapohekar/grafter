@@ -63,6 +63,11 @@ backend restarts. Data defaults to `%USERPROFILE%\.grafter`, outside this
 checkout. Saved PATs are stored locally in `tokens.json`; they are **not
 encrypted** and are never copied into scan queue rows.
 
+**PAT save fails in a new environment?** The backend inherits proxy settings;
+a dead proxy can block GitHub validation even for a valid token. See
+[PAT setup and proxy troubleshooting](DOCUMENTATION.md#adding-a-pat-and-proxy-errors)
+for proxy configuration, `NO_PROXY`, and backend restart steps.
+
 ## Nine rule families
 
 | Family | What it searches for |

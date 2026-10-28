@@ -269,6 +269,49 @@ Removing `/api/tokens/{login}` removes saved entries for that login. Current
 scan-pool save/remove operations rewrite that file with pool records, so
 verify/re-save Live PoC credentials after changing the scan pool.
 
+### Adding a PAT and proxy errors
+
+When you save a PAT, the backend validates it with
+`GET https://api.github.com/user` before storing it. This request uses HTTPX
+with its default `trust_env=True`, so it can inherit `HTTPS_PROXY`,
+`HTTP_PROXY`, and `ALL_PROXY`. On Windows/macOS, HTTPX can also discover system
+proxy settings. These are separate from Vite's local frontend-to-backend proxy.
+
+A stale proxy such as `http://127.0.0.1:9` can therefore prevent a **valid PAT**
+from being saved. That address is not a configured Grafter endpoint; it can
+come from the environment or system proxy configuration. Connection refusal,
+proxy errors, and timeouts can occur before GitHub receives the validation
+request. The PAT-saving endpoint currently does not translate these network
+exceptions into a specific proxy error, so the UI may show a generic server
+error instead of a useful diagnosis.
+
+If adding a PAT fails in a new environment:
+
+1. Inspect the backend process's proxy environment variables and relevant OS proxy settings. Proxy URLs can contain credentials; avoid sharing their complete values in logs or screenshots.
+2. If a corporate proxy is required, correct its address/configuration and confirm it is reachable.
+3. If direct GitHub access is allowed, add GitHub and local application hosts to `NO_PROXY`, preserving existing exclusions.
+4. Restart the backend from the terminal with the corrected environment, then retry saving the PAT.
+
+For direct access, stop the existing backend and run the following from the
+repository root in PowerShell:
+
+```powershell
+$env:NO_PROXY = (@($env:NO_PROXY, "api.github.com", "127.0.0.1", "localhost") |
+    Where-Object { $_ }) -join ","
+.\backend\.venv\Scripts\python.exe .\backend\main.py
+```
+
+This changes only the current terminal's environment and processes started
+from it; it does not change an already running backend or permanently modify
+the machine's proxy settings. Shells on other platforms use the same
+`NO_PROXY` variable with their native environment-setting syntax. A proxy
+bypass will not work where direct outbound GitHub access is blocked.
+
+Do not treat every save failure as an invalid token: distinguish network/proxy
+failure from a GitHub rejection, then check PAT permissions and organization
+SSO authorization when GitHub is reachable. Scans and rechecks use HTTPX too,
+so inherited proxy problems can also affect later GitHub operations.
+
 ### Rotation and account-aware accounting
 
 Grafter rotates sequentially when the current token has insufficient quota;
@@ -1250,6 +1293,7 @@ For TypeScript checking, run `npx tsc --noEmit` from `frontend` so it uses
 | Old UI or unknown API endpoint after an update | Restart backend/Vite as appropriate; rebuild assets when serving static output |
 | Missing Python modules | Install `backend\requirements.txt` using the intended virtual environment |
 | Missing frontend packages | Run `npm install` in `frontend` |
+| Adding a valid PAT fails with proxy/connection errors or a generic server error | Check inherited proxy settings and restart the backend after correction; see [Adding a PAT and proxy errors](#adding-a-pat-and-proxy-errors) |
 | Owner not found | Use an organization/user login, verify spelling/access; API may suggest close login matches |
 | Few/no repositories | Check PAT scopes, SSO, private access, archived/fork filtering, and repository limit |
 | Pool starts near 5000/10000 | One independent account may have little quota left; inspect account breakdown and partial probes |
