@@ -1,0 +1,22 @@
+# Python
+**/.venv/
+**/__pycache__/
+*.py[cod]
+
+# Node
+**/node_modules/
+**/dist/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+**/tokens.json
+
+# Runtime and editor files
+*.log
+/.azure/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
